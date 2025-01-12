@@ -79,7 +79,7 @@ class MultiHeadAttention(nn.Module):
         """
 
         #Mutihead attention
-        qkv = self.qkv(input)# (B, T, 3*dim)
+        qkv = self.qkv(input) # фееутешщт ьфыл шт иуке(B, T, 3*dim)
         q, k, v = torch.chunk(qkv, 3, dim=-1)
     
         q = q.view(input.size(0), input.size(1), self.n_heads, self.head_dim).transpose(1, 2)  # (B, n_heads, T, head_dim)
@@ -214,3 +214,54 @@ class Transformer(nn.Module):
 
         return hidden, out
     
+
+class BertPooler(nn.Module):
+        def __init__(self, model_dim):
+            super().__init__()
+            self.dense = nn.Linear(model_dim, model_dim)
+            self.activation = nn.Tanh()
+
+        def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+            # We "pool" the model by simply taking the hidden state corresponding
+            # to the first token.
+            first_token_tensor = hidden_states[:, 0, :]
+            #print(first_token_tensor.shape)
+            pooled_output = self.dense(first_token_tensor)
+            pooled_output = self.activation(pooled_output)
+            return pooled_output
+        
+class CustomBertForClassification(nn.Module):
+
+
+    
+        
+    def __init__(self, bert_base, hidden_dim, num_labels):
+
+        super().__init__()
+        self.bert_base = bert_base
+        self.hidden_dim = hidden_dim
+        self.num_labels=num_labels
+        self.pooler = BertPooler(bert_base.model_dim)
+        self.classification_head = nn.Sequential(nn.Linear(bert_base.model_dim,hidden_dim ),
+                                                 nn.ReLU(),
+                                                 nn.Linear(hidden_dim, num_labels))
+        
+        
+    def forward(self, input, attn_mask, token_type_ids):
+        """_summary_
+
+        Args:
+            input (_type_): _description_
+            attn_mask (_type_): _description_
+            token_type_ids (_type_): _description_
+
+        Returns:
+            torch.Tensor: logits for num_labels classes
+        """
+
+        hidden, out = self.bert_base(input, attn_mask, token_type_ids)
+        #print(out.shape)
+        out=self.pooler(hidden)#Must be applied on hidden state
+        out = self.classification_head(out)
+        return out
+
