@@ -1,6 +1,25 @@
-
 import torch
 import torch.nn as nn
+import math
+
+class BertEmbeddings(nn.Module):
+    def __init__(self, vocab_size, hidden_size, context_length):
+        super().__init__()
+        self.word_embeddings = nn.Embedding(vocab_size, hidden_size, padding_idx=0)
+        self.position_embeddings = nn.Embedding(context_length, hidden_size)
+        self.token_type_embeddings = nn.Embedding(2, hidden_size)
+
+    def forward(self, input_ids, token_type_ids):
+        seq_length = input_ids.size(1)
+        position_ids = torch.arange(seq_length, dtype=torch.long, device=input_ids.device)
+        position_ids = position_ids.unsqueeze(0).expand_as(input_ids)
+
+        words_embeddings = self.word_embeddings(input_ids)
+        position_embeddings = self.position_embeddings(position_ids)
+        token_type_embeddings = self.token_type_embeddings(token_type_ids)
+
+        embeddings = words_embeddings + position_embeddings + token_type_embeddings
+        return embeddings
 
 
 class LayerNorm(nn.Module):
@@ -26,7 +45,6 @@ class LayerNorm(nn.Module):
         out = (input - mean) / torch.sqrt(var+self.eps) * self.gamma + self.beta
         
         return out
-
 
 
 class MultiHeadAttention(nn.Module):
@@ -61,7 +79,7 @@ class MultiHeadAttention(nn.Module):
         """
 
         #Mutihead attention
-        qkv = self.qkv(input) #  (B, T, 3*dim)
+        qkv = self.qkv(input)# (B, T, 3*dim)
         q, k, v = torch.chunk(qkv, 3, dim=-1)
     
         q = q.view(input.size(0), input.size(1), self.n_heads, self.head_dim).transpose(1, 2)  # (B, n_heads, T, head_dim)
@@ -149,3 +167,50 @@ class TransfomerBlock(nn.Module):
 
         return out
 
+
+
+class Transformer(nn.Module):
+    """
+    Encoder-only transofrmer.
+    forward method takes sequences with the same lengthes as input, and then attention mask applied for pad tokens
+    """
+        
+    def __init__(self, vocab_size, model_dim, n_heads, max_seq_len, n_blocks, p_dropout=0.0):
+        super().__init__()
+        self.vocab_size, self.model_dim, self.n_heads, self.max_seq_len, self.n_blocks = vocab_size, model_dim, n_heads, max_seq_len, n_blocks
+        self.emb  = BertEmbeddings(vocab_size, model_dim,max_seq_len)
+        self.emb_ln = LayerNorm(model_dim)
+        self.dropout = nn.Dropout(p=p_dropout)
+        self.net = nn.ModuleList([TransfomerBlock(model_dim, n_heads,p_dropout) for _ in range (n_blocks)])
+       
+        self.final_linear = nn.Linear(model_dim, model_dim)
+        self.activation = nn.Tanh()
+
+
+    def forward(self, input, attn_mask, token_type_ids):
+        """
+        input (torch.Tensor): batch of data to predict logits on. (B, T, C)
+        Args:
+            input (torch.Tensor): batch of data to predict logits on. (B, T, C)
+            attn_mask (torch.Tensor): pad tokens indicator. (B, T)
+        Returns:
+            torch.Tensor: Tensors with logits. nan where pad token. (B, T, vocab_size) - mlm_logits, (B, 2)- nsp logits
+        """
+        
+        embs = self.emb(input, token_type_ids)
+
+        embs = self.emb_ln (embs)
+
+        embs = self.dropout(embs)
+
+        for encoder in self.net:
+            embs = encoder.forward(embs, attn_mask)
+
+        hidden = embs
+
+        out = self.final_linear(embs)#(B, T, C)
+
+        out = self.activation(out)
+
+        return hidden, out
+    
