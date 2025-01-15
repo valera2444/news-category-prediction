@@ -8,6 +8,14 @@ import argparse
 
 from model import Transformer, CustomBertForClassification
 
+import pandas as pd
+import numpy as np
+
+from gcloud_operations import upload_file, upload_folder, download_file, download_folder
+
+import os.path
+
+
 #dict( enumerate(j['category'].astype('category').cat.categories ) ) on NewsDataset(data.json)
 index_to_category = {
     0: 'ARTS',
@@ -86,28 +94,54 @@ def predict(model, tokenizer, test_dataloader, device):
             predictions.append( torch.argmax(preds, dim=1))
 
     predictions = torch.cat(predictions).numpy(force=True)
-    return predictions
+
+    categorical_preds  = [index_to_category[idx] for idx in predictions]
+
+    labels = []
+    for v in test_dataloader:
+        labels.append(v['y'])
+
+    labels = np.concatenate(labels)
+    labels = [index_to_category[idx] for idx in labels]
+
+    df = pd.DataFrame({'labels':labels,'categorical_preds':categorical_preds})
+
+    df.to_csv('predictions.csv')
+    return df
+
+def main(bucket_name, data_path,model_path, batch_size, device ):
+
+    if not os.path.exists(data_path):
+        download_file(bucket_name, data_path)
+
+    if not os.path.exists(model_path):
+        download_file(bucket_name, model_path)
+    
+    if device == 'cuda':
+        assert torch.cuda.is_available()
+
+    tokenizer = load_tokenizer()
+    model = load_model(model_path, tokenizer).to(device)
+    dataloader = create_dataloader(data_path, batch_size)
+
+    preds = predict(model, tokenizer, dataloader, device)
+
+    upload_file('predictions.csv', bucket_name)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument('--bucket_name', type=str)           # positional argument
     parser.add_argument('--data_path', type=str)           # positional argument
     parser.add_argument('--model_path', type=str)      # option that takes a value
     parser.add_argument('--batch_size', type=int) 
     parser.add_argument('--device', type=str, choices=['cuda','cpu']) 
     args = parser.parse_args()
 
-    if args.device == 'cuda':
-        assert torch.cuda.is_available()
+    preds = main(args.bucket_name, args.data_path,args.model_path, args.batch_size, args.device )
 
-    tokenizer = load_tokenizer()
-    model = load_model(args.model_path, tokenizer).to(args.device)
-    dataloader = create_dataloader(args.data_path, args.batch_size)
 
-    preds = predict(model, tokenizer, dataloader, args.device)
 
-    categorical_preds  = [index_to_category[idx] for idx in preds]
-    print(categorical_preds)
 
 #import pandas as pd
 #s = pd.read_json('data.json', lines=True)
