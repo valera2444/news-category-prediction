@@ -109,7 +109,7 @@ def predict(model, tokenizer, test_dataloader, device):
     df.to_csv('predictions.csv')
     return df
 
-def main(bucket_name, data_path,model_path, batch_size, device ):
+def main(bucket_name, data_path,model_path, batch_size ):
 
     if not os.path.exists(data_path):
         download_file(bucket_name, data_path)
@@ -117,11 +117,11 @@ def main(bucket_name, data_path,model_path, batch_size, device ):
     if not os.path.exists(model_path):
         download_file(bucket_name, model_path)
     
-    if device == 'cuda':
-        assert torch.cuda.is_available()
+    device = 'cuda:0' if  torch.cuda.is_available() else 'cpu'
 
     tokenizer = load_tokenizer()
     model = load_model(model_path, tokenizer).to(device)
+    model.to(device)
     dataloader = create_dataloader(data_path, batch_size)
 
     preds = predict(model, tokenizer, dataloader, device)
@@ -132,13 +132,12 @@ def main(bucket_name, data_path,model_path, batch_size, device ):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--bucket_name', type=str)           # positional argument
-    parser.add_argument('--data_path', type=str)           # positional argument
     parser.add_argument('--model_path', type=str)      # option that takes a value
     parser.add_argument('--batch_size', type=int) 
-    parser.add_argument('--device', type=str, choices=['cuda','cpu']) 
+    
     args = parser.parse_args()
 
-    preds = main(args.bucket_name, args.data_path,args.model_path, args.batch_size, args.device )
+    preds = main(args.bucket_name,'test_data.json',args.model_path, args.batch_size)
 
 
 
