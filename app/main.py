@@ -33,10 +33,11 @@ async def healthcheck():
 @app.get("/predict/", tags=["predict"])
 async def create_prediction(sample: Annotated[SampleParams, Query()]):
 
-    prediction = main('news-category-prediction',
+    prediction = main(
                       sample.headline,
                       sample.link,
                       sample.short_description,
-                      sample.authors)
+                      sample.authors
+                      )
 
     return f"Prediction for this article: {prediction}"

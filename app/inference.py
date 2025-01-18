@@ -11,7 +11,7 @@ from model import Transformer, CustomBertForClassification
 import pandas as pd
 import numpy as np
 
-from  gcloud_operations import upload_file, upload_folder, download_file, download_folder
+from  gcloud_operations import download_file
 
 import os.path
 
@@ -107,7 +107,9 @@ def predict(model, tokenizer, test_dataloader):
 
     return categorical_preds[0]
 
-def main(bucket_name,headline, link, short_description, authors):
+def main(headline, link, short_description, authors):
+
+    download_file('news-category-prediction','weights_final_81_acc.pt', 'app/weights_final_81_acc.pt')
 
     model_path='app/weights_final_81_acc.pt'
     tokenizer = load_tokenizer()
