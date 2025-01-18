@@ -11,7 +11,7 @@ from model import Transformer, CustomBertForClassification
 import pandas as pd
 import numpy as np
 
-from gcloud_operations import upload_file, upload_folder, download_file, download_folder
+from  gcloud_operations import download_file
 
 import os.path
 
@@ -65,7 +65,7 @@ index_to_category = {
 def load_model(path,tokenizer):
     t = Transformer(vocab_size=tokenizer.vocab_size, model_dim=768,n_heads=12,max_seq_len=512,n_blocks=12)
     model = CustomBertForClassification(t, 1024, 42)
-    model.load_state_dict(torch.load(path, weights_only=True))
+    model.load_state_dict(torch.load(path, weights_only=True, map_location=torch.device('cpu')))
 
     model.eval()
     return model
@@ -74,21 +74,29 @@ def load_tokenizer():
     tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
     return tokenizer
 
-def create_dataloader(path, batch_size):
+def create_dataloader(headline, link, short_description, authors):
 
-        
+    path='data.json'
+
+    df = pd.DataFrame({'headline':headline,
+                       'link':link,
+                       'short_description':short_description,
+                       'authors':authors}, index=[0])
+    
+    df.to_json(path, orient='records', lines=True)
+
     ds = NewsDataset(path)
-    test_dataloader = DataLoader(ds, batch_size=batch_size,
+    test_dataloader = DataLoader(ds, batch_size=1,
                         shuffle=False, num_workers=0)
     return test_dataloader
 
-def predict(model, tokenizer, test_dataloader, device):
+def predict(model, tokenizer, test_dataloader):
     predictions = []
     with torch.no_grad():
             
         for b_eval in test_dataloader:
             tokenized = tokenizer(b_eval['x'], padding=True, return_tensors="pt")
-            tokenized.to(device)
+            tokenized
             ids, mask, token_type_ids = tokenized['input_ids'], tokenized['attention_mask'], tokenized['token_type_ids']
             preds = model(ids, mask, token_type_ids)
             predictions.append( torch.argmax(preds, dim=1))
@@ -97,50 +105,20 @@ def predict(model, tokenizer, test_dataloader, device):
 
     categorical_preds  = [index_to_category[idx] for idx in predictions]
 
-    labels = []
-    for v in test_dataloader:
-        labels.append(v['y'])
+    return categorical_preds[0]
 
-    labels = np.concatenate(labels)
-    labels = [index_to_category[idx] for idx in labels]
+def main(headline, link, short_description, authors):
 
-    df = pd.DataFrame({'labels':labels,'categorical_preds':categorical_preds})
+    download_file('news-category-prediction','weights_final_81_acc.pt', 'app/weights_final_81_acc.pt')
 
-    df.to_csv('predictions.csv')
-    return df
-
-def main(bucket_name, data_path,model_path, batch_size, device ):
-
-    if not os.path.exists(data_path):
-        download_file(bucket_name, data_path)
-
-    if not os.path.exists(model_path):
-        download_file(bucket_name, model_path)
-    
-    if device == 'cuda':
-        assert torch.cuda.is_available()
-
+    model_path='app/weights_final_81_acc.pt'
     tokenizer = load_tokenizer()
-    model = load_model(model_path, tokenizer).to(device)
-    dataloader = create_dataloader(data_path, batch_size)
+    model = load_model(model_path, tokenizer)
+    dataloader = create_dataloader(headline, link, short_description, authors)
 
-    preds = predict(model, tokenizer, dataloader, device)
+    preds = predict(model, tokenizer, dataloader)
 
-    upload_file('predictions.csv', bucket_name)
-
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--bucket_name', type=str)           # positional argument
-    parser.add_argument('--data_path', type=str)           # positional argument
-    parser.add_argument('--model_path', type=str)      # option that takes a value
-    parser.add_argument('--batch_size', type=int) 
-    parser.add_argument('--device', type=str, choices=['cuda','cpu']) 
-    args = parser.parse_args()
-
-    preds = main(args.bucket_name, args.data_path,args.model_path, args.batch_size, args.device )
-
-
+    return preds
 
 
 #import pandas as pd

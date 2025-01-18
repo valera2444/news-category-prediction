@@ -33,7 +33,7 @@ class NewsDataset(Dataset):
         ' ; authors: ' + j['authors'] + \
         ' ; link: ' + link
 
-        
+        j['category']=''
         self.y = j['category'].astype('category').cat.codes
         
     def __len__(self):
