@@ -7,7 +7,7 @@ WORKDIR /code
 
 COPY ./requirements.txt /code/requirements.txt
 
-RUN pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+RUN pip3 install torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu
 RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 
 COPY ./app /code/app
