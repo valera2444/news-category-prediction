@@ -2,14 +2,12 @@
 # Name: news-classification-pipeline
 # Inputs:
 #    bucket_name: str [Default: 'my-bucket']
-#    error_analysis_out: str [Default: 'error_analysis.csv']
+#    data_path: str [Default: 'data.json']
+#    error_analysis_out: str [Default: 'error_analysis']
 #    eval_batch_size: int [Default: 200.0]
 #    inference_batch_size: int [Default: 64.0]
 #    model_path: str [Default: 'best_model.pt']
-#    test_data_path: str [Default: 'test_data.json']
 #    train_batch_size: int [Default: 32.0]
-#    train_data_path: str [Default: 'train_data.json']
-#    val_data_path: str [Default: 'val_data.json']
 components:
   comp-error-analysis:
     executorLabel: exec-error-analysis
@@ -118,7 +116,7 @@ root:
             bucket_name:
               componentInputParameter: bucket_name
             data_path:
-              componentInputParameter: test_data_path
+              componentInputParameter: data_path
             out_path:
               componentInputParameter: error_analysis_out
         taskInfo:
@@ -150,7 +148,7 @@ root:
             bucket_name:
               componentInputParameter: bucket_name
             data_path:
-              componentInputParameter: train_data_path
+              componentInputParameter: data_path
         taskInfo:
           name: prepare-data
       train-model:
@@ -176,8 +174,12 @@ root:
         defaultValue: my-bucket
         isOptional: true
         parameterType: STRING
+      data_path:
+        defaultValue: data.json
+        isOptional: true
+        parameterType: STRING
       error_analysis_out:
-        defaultValue: error_analysis.csv
+        defaultValue: error_analysis
         isOptional: true
         parameterType: STRING
       eval_batch_size:
@@ -192,21 +194,9 @@ root:
         defaultValue: best_model.pt
         isOptional: true
         parameterType: STRING
-      test_data_path:
-        defaultValue: test_data.json
-        isOptional: true
-        parameterType: STRING
       train_batch_size:
         defaultValue: 32.0
         isOptional: true
         parameterType: NUMBER_INTEGER
-      train_data_path:
-        defaultValue: train_data.json
-        isOptional: true
-        parameterType: STRING
-      val_data_path:
-        defaultValue: val_data.json
-        isOptional: true
-        parameterType: STRING
 schemaVersion: 2.1.0
 sdkVersion: kfp-2.11.0
