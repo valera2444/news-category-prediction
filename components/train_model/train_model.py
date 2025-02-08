@@ -7,7 +7,7 @@ import torch
 
 from transformers import BertModel
 
-import matplotlib.pyplot as pl
+import matplotlib.pyplot as plt
 from transformers import AutoTokenizer
 
 

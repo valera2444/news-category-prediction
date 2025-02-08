@@ -11,7 +11,7 @@ from pathlib import Path
 def upload_file(filename, bucket_name):
     """Uploads a file to the bucket."""
   
-    storage_client = storage.Client.from_service_account_json('service_account_token.json')
+    storage_client = storage.Client()
   
     bucket = storage_client.get_bucket(bucket_name)
 
@@ -27,7 +27,7 @@ def upload_file(filename, bucket_name):
 def upload_folder(path, bucket_name):
 
     print(os.getcwd())
-    storage_client = storage.Client.from_service_account_json('service_account_token.json')
+    storage_client = storage.Client()
     bucket = storage_client.get_bucket(bucket_name)
 
     for local_file in glob.glob(path + '/**'):
@@ -43,7 +43,7 @@ def upload_folder(path, bucket_name):
 
 def download_folder(bucket_name,path):
     
-    storage_client = storage.Client.from_service_account_json('service_account_token.json')
+    storage_client = storage.Client()
     bucket = storage_client.get_bucket(bucket_name)
    
     blobs = bucket.list_blobs(prefix=path)  # Get list of files
@@ -58,7 +58,7 @@ def download_folder(bucket_name,path):
 
 def download_file(bucket_name, destination_file_name):
     
-    storage_client = storage.Client.from_service_account_json('service_account_token.json')
+    storage_client = storage.Client()
     bucket = storage_client.get_bucket(bucket_name)
     
     blob = bucket.blob(destination_file_name)
